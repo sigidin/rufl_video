@@ -47,7 +47,8 @@ const LOGOS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZ
 
 // --- Components ---
 
-import { startPresence, incrementMonthlyVisitors } from './firebase';
+import { startPresence, incrementMonthlyVisitors, db, testConnection } from './firebase';
+import { onSnapshot, doc } from 'firebase/firestore';
 
 const isOurTeam = (name: string) => {
   const lower = name.toLowerCase();
@@ -148,7 +149,7 @@ const AutoIntro = ({ onComplete }: { onComplete: () => void }) => {
       return () => clearTimeout(startTimer);
     }
     if (stage === 'zooming') {
-      const completeTimer = setTimeout(() => onComplete(), 10000);
+      const completeTimer = setTimeout(() => onComplete(), 6000);
       return () => clearTimeout(completeTimer);
     }
   }, [stage, onComplete]);
@@ -177,7 +178,7 @@ const AutoIntro = ({ onComplete }: { onComplete: () => void }) => {
           scale: stage === 'zooming' ? 1.4 : 1,
           filter: stage === 'zooming' ? "brightness(0.5)" : "brightness(1)"
         }}
-        transition={{ duration: 10, ease: "easeInOut" }}
+        transition={{ duration: 5, ease: "easeInOut" }}
       >
         <video 
           autoPlay 
@@ -196,20 +197,22 @@ const AutoIntro = ({ onComplete }: { onComplete: () => void }) => {
         className="absolute inset-0 z-10 flex items-start justify-center pointer-events-none"
         initial={{ scale: 1, opacity: 0 }}
         animate={{ 
-          scale: stage === 'zooming' ? 25 : 1,
+          scale: stage === 'zooming' ? 45 : 1,
           opacity: stage === 'loading' ? 0 : (stage === 'static' ? 1 : 0),
-          y: "0%"
+          y: "0%",
+          x: stage === 'zooming' ? "10%" : "0%"
         }}
         transition={{ 
           scale: { duration: 10, ease: "easeInOut" },
           opacity: { 
-            duration: stage === 'zooming' ? 2 : 0.8, 
-            delay: stage === 'zooming' ? 8 : 0, 
+            duration: stage === 'zooming' ? 1.5 : 0.8, 
+            delay: stage === 'zooming' ? 4.5 : 0, 
             ease: "easeInOut" 
           },
-          y: { duration: 10, ease: "easeInOut" }
+          y: { duration: 10, ease: "easeInOut" },
+          x: { duration: 10, ease: "easeInOut" }
         }}
-        style={{ originY: 0.1, originX: 0.5 }}
+        style={{ originY: 0.3, originX: 0.5 }}
       >
         <img 
           src={imageUrl}
@@ -902,18 +905,31 @@ const FarEastMap = () => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    // Mock incrementing visitors
+    // Test connection
+    testConnection();
+
+    // Increment monthly visitors once per session
     incrementMonthlyVisitors();
 
-    // Randomize live stats slightly for demo effect
-    const interval = setInterval(() => {
-      setOnlineNow(prev => {
-        const delta = Math.floor(Math.random() * 5) - 2;
-        return Math.max(10, Math.min(100, prev + delta));
-      });
-    }, 5000);
+    // Start presence tracking and listen for online count
+    const stopPresence = startPresence((count) => {
+      setOnlineNow(count);
+    });
 
-    return () => clearInterval(interval);
+    // Listen for visitor stats updates
+    const unsubscribeVisitors = onSnapshot(doc(db, 'stats', 'visitors'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setMonthlyVisitors(data.monthlyCount || 0);
+      }
+    }, (error) => {
+      console.warn('Failed to fetch visitor stats:', error);
+    });
+
+    return () => {
+      stopPresence();
+      unsubscribeVisitors();
+    };
   }, []);
 
   const handleDoubleTap = () => {
@@ -1444,11 +1460,13 @@ const DownloadsSection = () => {
   const [activeTab, setActiveTab] = useState<'pc' | 'mobile' | 'other'>('pc');
 
   const pcWallpapers = [
+    { title: 'Динамо-12 ПК', url: 'https://i.ibb.co/Z170XMLy/hf-20260428-032400-6d5e1a3e-f85d-4634-8701-97cb1feddd7e-1.png', size: '2.4 MB' },
     { title: 'Карта турнира', url: 'https://i.ibb.co/7xJcHVQP/map.png', size: '2.4 MB' },
     { title: 'Динамо Стиль', url: 'https://i.ibb.co/FbzrPGdt/1.jpg', size: '1.8 MB' }
   ];
 
   const mobileWallpapers = [
+    { title: 'Динамо-12', url: 'https://i.ibb.co/WrcHwVd/1920.jpg', size: '1.5 MB' },
     { title: 'Киберпанк', url: 'https://i.ibb.co/fzht8FVN/Create-a-highly-202604140109.jpg', size: '1.2 MB' },
     { title: 'Фон Динамо #1', url: 'https://i.ibb.co/Mx5JM34y/background.png', size: '0.8 MB' },
     { title: 'Фон Динамо #2', url: 'https://i.ibb.co/Q3n5hP0r/background-2.png', size: '0.9 MB' },
