@@ -39,6 +39,10 @@ service cloud.firestore {
              time <= request.time;
     }
 
+    match /test/connection {
+      allow read: if true;
+    }
+
     // Rules
     match /stats/visitors {
       allow read: if true;

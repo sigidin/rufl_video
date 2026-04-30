@@ -104,8 +104,10 @@ export const startPresence = (onOnlineChange: (count: number) => void) => {
   );
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
+    console.log('Presence update:', snapshot.size, 'users online');
     onOnlineChange(snapshot.size);
   }, (error) => {
+    console.error('Presence Snapshot Error:', error);
     handleFirestoreError(error, OperationType.GET, 'presence');
   });
 
