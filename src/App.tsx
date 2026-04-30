@@ -899,8 +899,8 @@ const getDayOfWeek = (dateStr: string) => {
 };
 
 const FarEastMap = () => {
-  const [monthlyVisitors, setMonthlyVisitors] = useState<number>(1248);
-  const [onlineNow, setOnlineNow] = useState<number>(42);
+  const [monthlyVisitors, setMonthlyVisitors] = useState<number>(0);
+  const [onlineNow, setOnlineNow] = useState<number>(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
