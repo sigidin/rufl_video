@@ -18,9 +18,11 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+
 export const db = (firebaseConfig as any).firestoreDatabaseId && (firebaseConfig as any).firestoreDatabaseId !== '(default)'
   ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
   : getFirestore(app);
+
 export const auth = getAuth(app);
 
 // Connection Test
@@ -104,10 +106,8 @@ export const startPresence = (onOnlineChange: (count: number) => void) => {
   );
 
   const unsubscribe = onSnapshot(q, (snapshot) => {
-    console.log('Presence update:', snapshot.size, 'users online');
     onOnlineChange(snapshot.size);
   }, (error) => {
-    console.error('Presence Snapshot Error:', error);
     handleFirestoreError(error, OperationType.GET, 'presence');
   });
 

@@ -918,28 +918,17 @@ const FarEastMap = () => {
 
     // Listen for visitor stats updates
     const docRef = doc(db, 'stats', 'visitors');
-    console.log('Starting onSnapshot for:', docRef.path);
-
     const unsubscribeVisitors = onSnapshot(docRef, (snapshot) => {
-      console.log('onSnapshot fired. Exists:', snapshot.exists());
       if (snapshot.exists()) {
         const data = snapshot.data();
-        console.log('Doc data:', data);
-        
-        // Handle potential field name variations or types
         const count = data.monthlyCount ?? data.monthlycount ?? data.count ?? 0;
         setMonthlyVisitors(Number(count));
       } else {
-        console.warn('Document stats/visitors not found. Trying to create it...');
         setMonthlyVisitors(0);
-        // Fallback: try to increment to trigger creation if allowed
         incrementMonthlyVisitors();
       }
     }, (error) => {
       console.error('Firestore Error in onSnapshot:', error.code, error.message);
-      if (error.code === 'permission-denied') {
-        console.warn('Check your Firestore rules for stats/visitors');
-      }
     });
 
     return () => {
