@@ -1476,7 +1476,10 @@ const DownloadsSection = () => {
     { title: 'Фон Динамо #1', url: 'https://i.ibb.co/Mx5JM34y/background.png', size: '0.8 MB' },
     { title: 'Фон Динамо #2', url: 'https://i.ibb.co/Q3n5hP0r/background-2.png', size: '0.9 MB' },
     { title: 'Фон Динамо #3', url: 'https://i.ibb.co/3m93Ynz5/background-3.png', size: '1.1 MB' },
-    { title: 'Фон Динамо #4', url: 'https://i.ibb.co/N6PCSqG0/background-4.png', size: '1.0 MB' }
+    { title: 'Фон Динамо #4', url: 'https://i.ibb.co/N6PCSqG0/background-4.png', size: '1.0 MB' },
+    { title: 'Фон Динамо #5', url: 'https://i.ibb.co/Zzp0mZ0h/6.jpg', size: '1.3 MB' },
+    { title: 'Фон Динамо #6', url: 'https://i.ibb.co/vCGTKkY1/5.jpg', size: '1.4 MB' },
+    { title: 'Фон Динамо #7', url: 'https://i.ibb.co/5h4WMT1x/1.jpg', size: '1.2 MB' }
   ];
 
   const otherMedia = [
