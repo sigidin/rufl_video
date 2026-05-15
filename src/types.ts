@@ -19,6 +19,12 @@ export interface TableRow {
   lastGames: ('W' | 'D' | 'L')[];
 }
 
+export interface Highlight {
+  id: string;
+  time: string; // e.g. "12:34" or "1:02:15"
+  description: string;
+}
+
 export interface Match {
   id: number;
   date: string;
@@ -27,12 +33,14 @@ export interface Match {
   awayTeam: string;
   homeScore?: number;
   awayScore?: number;
+  score?: string; // e.g. "2:1"
   status: 'Ожидается' | 'Завершен' | 'Идет';
   location: string;
   homeScorers?: string; // New: comma separated list
   awayScorers?: string; // New: comma separated list
   photoUrl?: string;    // New: link to gallery
   broadcastUrl?: string; // New: link to stream
+  highlights?: Highlight[]; // New: key moments in the video
   weather?: string;      // New: weather info
   mapUrl?: string;       // New: link to 2GIS/Google Maps
   isHome?: boolean;

@@ -68,10 +68,36 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+const QUOTES = [
+  { text: "Играй сердцем. Думай головой. Борись до конца." },
+  { text: "Великие команды строятся из маленьких усилий." },
+  { text: "Игра забывается. Характер остаётся." },
+  { text: "Скорость ног важна. Скорость мысли — важнее." },
+  { text: "Талант открывает дверь. Характер оставляет тебя в игре." },
+  { text: "Чтобы побеждать, нужно прежде всего не бояться проигрывать.", author: "Пеп Гвардиола" },
+  { text: "Если ты не веришь, что можем победить — уже проиграл.", author: "Зинедин Зидан" },
+  { text: "В футбол играют головой. Ноги — всего лишь инструмент.", author: "Андреа Пирло" },
+  { text: "Победа начинается в голове.", author: "Дидье Дешам" },
+  { text: "Настоящий игрок сначала думает о команде, а потом о себе.", author: "Серхио Рамос" },
+  { text: "Настоящая сила команды — в единстве.", author: "Франц Беккенбауэр" },
+  { text: "Хорошая команда — это когда каждый готов бежать за другого.", author: "Диего Симеоне" },
+  { text: "В футболе нельзя прятаться.", author: "Рой Кин" },
+  { text: "Мяч должен двигаться быстрее игрока.", author: "Пеп Гвардиола" },
+  { text: "Никогда не сдавайся, пока не прозвучал финальный свисток.", author: "Алекс Фергюсон" }
+];
+
 const Header = ({ isVisible: forceVisible }: { isVisible?: boolean }) => {
   const [clicks, setClicks] = useState(0);
   const [scrollVisible, setScrollVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex(prev => (prev + 1) % QUOTES.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const controlHeader = () => {
@@ -112,22 +138,83 @@ const Header = ({ isVisible: forceVisible }: { isVisible?: boolean }) => {
       initial={{ y: 0 }}
       animate={{ y: isVisible ? 0 : -150 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-bright-blue/30 backdrop-blur-xl"
+      className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-bright-blue/30 backdrop-blur-2xl"
     >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col items-center text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-bright-blue/5 via-transparent to-neon-pink/5 pointer-events-none" />
-        <div className="flex flex-col items-center">
-          <div className="text-[10px] text-strong text-bright-blue tracking-[0.4em] animate-pulse mb-1">неофициальное приложение</div>
-          <h1 
+      <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-bright-blue/10 via-transparent to-neon-pink/10 pointer-events-none" />
+        
+        {/* Left Side: Brand & Info */}
+        <div className="flex flex-col items-center md:items-start text-center md:text-left relative z-10">
+          <div 
             onClick={handleEasterEgg}
-            className="text-2xl md:text-3xl text-strong gradient-text glitch-hover cursor-pointer leading-tight select-none"
+            className="cursor-pointer select-none relative group h-20 md:h-28 flex items-center"
           >
-            ДИНАМО на РЮФЛ-26!
-          </h1>
+            <img 
+              src="https://i.ibb.co/bjyNdN9v/image.png" 
+              alt="ДИНАМО на РЮФЛ-2026" 
+              className="h-full w-auto object-contain mix-blend-screen drop-shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all duration-300 group-hover:scale-105"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const textFallback = e.currentTarget.nextElementSibling;
+                if (textFallback) textFallback.classList.remove('hidden');
+              }}
+            />
+            <h1 className="hidden text-2xl md:text-3xl font-oswald font-extrabold text-white glitch-hover leading-none tracking-tight flex items-baseline gap-2">
+              ДИНАМО <span className="text-bright-blue inline-block">на РЮФЛ-26!</span>
+            </h1>
+          </div>
         </div>
-        <p className="text-[10px] text-white/60 font-bold uppercase tracking-[0.2em] mt-1">
-          Региональная юношеская футбольная лига | Дальний Восток
-        </p>
+
+        {/* Right Side: Rotating Quotes */}
+        <div className="hidden md:flex flex-col items-end text-right min-w-[350px] relative z-10">
+          <div className="text-[8px] font-black text-bright-blue/40 uppercase tracking-[0.3em] mb-2 flex items-center gap-2">
+             <div className="h-px w-6 bg-bright-blue/20" />
+             футбольная философия
+          </div>
+          <div className="h-12 flex flex-col items-end justify-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={quoteIndex}
+                initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -10, filter: 'blur(4px)' }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="flex flex-col items-end"
+              >
+                <p className="text-[11px] font-bold text-white/90 leading-tight max-w-sm">
+                  {QUOTES[quoteIndex].text}
+                </p>
+                {QUOTES[quoteIndex].author && (
+                  <p className="text-[10px] font-normal text-white/50 italic mt-0.5">
+                    {QUOTES[quoteIndex].author}
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Mobile Quote (Visible only on small screens below navigation) */}
+        <div className="md:hidden border-t border-white/5 pt-3 mt-1 text-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={quoteIndex}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                className="flex flex-col items-center"
+              >
+                <p className="text-[10px] font-bold text-white/80 leading-relaxed">
+                  {QUOTES[quoteIndex].text}
+                </p>
+                {QUOTES[quoteIndex].author && (
+                  <p className="text-[9px] font-normal text-white/40 italic mt-0.5">
+                    {QUOTES[quoteIndex].author}
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
+        </div>
       </div>
     </motion.header>
   );
@@ -271,17 +358,44 @@ const NextMatchCard = ({ match, table, logos }: { match: Match | null, table: Ta
     });
   };
 
-  const getVkEmbedUrl = (url: string) => {
+  const getVkEmbedUrl = (url: string, startTime?: number) => {
     const match = url.match(/video(-?\d+)_(\d+)/);
     if (match) {
-      return `https://vk.com/video_ext.php?oid=${match[1]}&id=${match[2]}&hd=2`;
+      let embedUrl = `https://vk.com/video_ext.php?oid=${match[1]}&id=${match[2]}&hd=2`;
+      if (startTime) {
+        embedUrl += `&start=${startTime}`;
+      }
+      return embedUrl;
     }
     return null;
   };
 
+  const timeToSeconds = (time: string) => {
+    const parts = time.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  };
+
+  const [startTime, setStartTime] = useState<number | undefined>(undefined);
+
   const homeForm = getTeamForm(match.homeTeam);
   const awayForm = getTeamForm(match.awayTeam);
-  const vkEmbedUrl = match.broadcastUrl ? getVkEmbedUrl(match.broadcastUrl) : null;
+  const vkEmbedUrl = match.broadcastUrl ? getVkEmbedUrl(match.broadcastUrl, startTime) : null;
+
+  const handleHighlightClick = (time: string) => {
+    const seconds = timeToSeconds(time);
+    setStartTime(seconds);
+    if (!showStream) setShowStream(true);
+    
+    // Scroll to player
+    setTimeout(() => {
+      const playerElement = document.getElementById('match-player');
+      if (playerElement) {
+        playerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
 
   return (
     <div className="px-4 py-10">
@@ -441,10 +555,12 @@ const NextMatchCard = ({ match, table, logos }: { match: Match | null, table: Ta
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="w-full overflow-hidden"
+                    id="match-player"
                   >
                     <div className="relative pt-[56.25%] w-full bg-navy/50 rounded-2xl border border-bright-blue/20 overflow-hidden shadow-2xl">
                       {vkEmbedUrl ? (
                         <iframe 
+                          key={startTime} // Force reload iframe on timestamp change
                           src={vkEmbedUrl} 
                           className="absolute top-0 left-0 w-full h-full"
                           allow="autoplay; encrypted-media; fullscreen; picture-in-picture;" 
@@ -467,6 +583,36 @@ const NextMatchCard = ({ match, table, logos }: { match: Match | null, table: Ta
                         </div>
                       )}
                     </div>
+
+                    {/* Highlights / Key Moments */}
+                    {match.highlights && match.highlights.length > 0 && (
+                      <div className="mt-8">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="h-px w-6 bg-bright-blue/30" />
+                          <span className="text-[10px] font-black text-bright-blue uppercase tracking-[0.3em]">ключевые моменты</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {match.highlights.map((h, i) => (
+                            <motion.button
+                              key={h.id}
+                              whileHover={{ x: 5, backgroundColor: 'rgba(0, 240, 255, 0.1)' }}
+                              onClick={() => handleHighlightClick(h.time)}
+                              className="flex items-center gap-4 p-3 rounded-xl bg-white/5 border border-white/10 text-left transition-colors group"
+                            >
+                              <div className="w-12 h-12 rounded-lg bg-navy flex items-center justify-center text-[10px] font-black text-bright-blue border border-bright-blue/20 group-hover:border-bright-blue/50">
+                                {h.time}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-bold text-white/80 group-hover:text-white transition-colors">
+                                  {h.description}
+                                </p>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-bright-blue transition-colors" />
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -88,8 +88,35 @@ export const MOCK_DATA: TournamentData = {
     { id: 13, date: '15.06', time: '14:00', homeTeam: 'Благовещенск', awayTeam: 'Динамо-Владивосток', status: 'Ожидается', location: 'Хабаровск', isHome: false },
     { id: 21, date: '29.06', time: '14:00', homeTeam: 'Динамо-Владивосток', awayTeam: 'СШОР №1', status: 'Ожидается', location: 'Хабаровск', isHome: true },
   ],
-  recentMatches: [],
-  nextMatch: { id: 4, date: '03.06', time: '18:00', homeTeam: 'Динамо-Владивосток', awayTeam: 'СКА-Хабаровск', status: 'Ожидается', location: 'Хабаровск' },
+  recentMatches: [
+    { 
+      id: 0, 
+      date: '25.05', 
+      time: '14:00', 
+      homeTeam: 'Локомотив-Уссурийск', 
+      awayTeam: 'Динамо-Владивосток', 
+      status: 'Завершен', 
+      score: '1:3',
+      location: 'Уссурийск',
+      broadcastUrl: 'https://vk.com/video-225576775_456239023',
+      highlights: [
+        { id: 'h1', time: '5:20', description: 'Первый опасный момент' },
+        { id: 'h2', time: '14:45', description: 'ГОООЛ! Открываем счет' },
+        { id: 'h3', time: '38:10', description: 'Сейв нашего вратаря' },
+        { id: 'h4', time: '75:00', description: 'Третий гол Динамо' }
+      ]
+    }
+  ],
+  nextMatch: { 
+    id: 4, 
+    date: '03.06', 
+    time: '18:00', 
+    homeTeam: 'Динамо-Владивосток', 
+    awayTeam: 'СКА-Хабаровск', 
+    status: 'Ожидается', 
+    location: 'Хабаровск',
+    broadcastUrl: 'https://vk.com/video-225576775_456239023'
+  },
   dinamoStats: {
     rank: 1,
     points: 0,
