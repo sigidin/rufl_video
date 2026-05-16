@@ -41,9 +41,20 @@ import { TournamentData, Match, TableRow, Player } from './types';
 
 import AirHockeyGame from './components/AirHockeyGame';
 
-const MATCHES_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=80457916&single=true&output=csv';
-const PLAYERS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=164242498&single=true&output=csv'; 
-const LOGOS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=0&single=true&output=csv'; // Замените gid=0 на нужный ID листа с логотипами
+type TournamentType = 'ДФО' | 'РЮФЛ';
+
+const TOURNAMENT_CONFIGS: Record<TournamentType, { matches: string; players: string }> = {
+  'ДФО': {
+    matches: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=80457916&single=true&output=csv',
+    players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=164242498&single=true&output=csv'
+  },
+  'РЮФЛ': {
+    matches: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=196450367&single=true&output=csv',
+    players: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=164242498&single=true&output=csv'
+  }
+};
+
+const LOGOS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR7TDrZwYgX3nA_CTjCHnf7VbNv4T4kHRG1nSMJ-TSgEhxrPKduWOP9XRovOK2t44g0lD28uxspnxyY/pub?gid=0&single=true&output=csv';
 
 // --- Components ---
 
@@ -52,7 +63,7 @@ import { onSnapshot, doc } from 'firebase/firestore';
 
 const isOurTeam = (name: string) => {
   const lower = name.toLowerCase();
-  return lower.includes('динамо') && !lower.includes('академия');
+  return lower.includes('динамо') && !lower.includes('академия') && !lower.includes('юный') && !lower.includes('ак.');
 };
 
 const formatDate = (dateStr: string) => {
@@ -86,7 +97,7 @@ const QUOTES = [
   { text: "Никогда не сдавайся, пока не прозвучал финальный свисток.", author: "Алекс Фергюсон" }
 ];
 
-const Header = ({ isVisible: forceVisible }: { isVisible?: boolean }) => {
+const Header = ({ isVisible: forceVisible, activeTournament, onTournamentChange }: { isVisible?: boolean, activeTournament: TournamentType, onTournamentChange: (t: TournamentType) => void }) => {
   const [clicks, setClicks] = useState(0);
   const [scrollVisible, setScrollVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -136,23 +147,27 @@ const Header = ({ isVisible: forceVisible }: { isVisible?: boolean }) => {
   return (
     <motion.header 
       initial={{ y: 0 }}
-      animate={{ y: isVisible ? 0 : -150 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-bright-blue/30 backdrop-blur-2xl"
+      animate={{ 
+        y: isVisible ? 0 : -180,
+        backgroundColor: activeTournament === 'ДФО' ? 'rgba(6, 12, 34, 0.96)' : 'rgba(25, 6, 54, 0.96)',
+        borderBottomColor: activeTournament === 'ДФО' ? 'rgba(0, 240, 255, 0.4)' : 'rgba(157, 0, 255, 0.4)'
+      }}
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+      className="fixed top-0 left-0 right-0 z-50 glass-card border-b backdrop-blur-2xl"
     >
-      <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-bright-blue/10 via-transparent to-neon-pink/10 pointer-events-none" />
+      <div className="max-w-7xl mx-auto px-4 py-0 flex flex-row items-center justify-between gap-4 relative overflow-hidden h-24 md:h-32">
+        <div className="absolute inset-0 bg-gradient-to-r from-bright-blue/5 via-transparent to-neon-pink/5 pointer-events-none" />
         
         {/* Left Side: Brand & Info */}
-        <div className="flex flex-col items-center md:items-start text-center md:text-left relative z-10">
+        <div className="flex flex-row items-center gap-4 md:gap-6 relative z-10 h-full">
           <div 
             onClick={handleEasterEgg}
-            className="cursor-pointer select-none relative group h-20 md:h-28 flex items-center"
+            className="cursor-pointer select-none relative group h-full flex items-center"
           >
             <img 
               src="https://i.ibb.co/bjyNdN9v/image.png" 
               alt="ДИНАМО на РЮФЛ-2026" 
-              className="h-full w-auto object-contain mix-blend-screen drop-shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all duration-300 group-hover:scale-105"
+              className="h-[95%] w-auto object-contain mix-blend-screen drop-shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all duration-300 group-hover:scale-105"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 const textFallback = e.currentTarget.nextElementSibling;
@@ -162,6 +177,29 @@ const Header = ({ isVisible: forceVisible }: { isVisible?: boolean }) => {
             <h1 className="hidden text-2xl md:text-3xl font-oswald font-extrabold text-white glitch-hover leading-none tracking-tight flex items-baseline gap-2">
               ДИНАМО <span className="text-bright-blue inline-block">на РЮФЛ-26!</span>
             </h1>
+          </div>
+
+          {/* Tournament Switcher */}
+          <div className="flex flex-col justify-center gap-1.5 md:gap-2">
+            {(['ДФО', 'РЮФЛ'] as TournamentType[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => onTournamentChange(t)}
+                className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] transition-all cursor-pointer relative py-0.5 ${
+                  activeTournament === t 
+                    ? 'text-bright-blue drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]' 
+                    : 'text-white/10 hover:text-white/30'
+                }`}
+              >
+                {t}
+                {activeTournament === t && (
+                  <motion.div 
+                    layoutId="activeTab"
+                    className="absolute -right-2 top-1/2 -translate-y-1/2 w-1 h-1 bg-bright-blue rounded-full shadow-[0_0_8px_rgba(0,240,255,1)]"
+                  />
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -947,8 +985,25 @@ const TournamentTable = ({ data, logos }: { data: TableRow[], logos: Record<stri
                       <div className="flex items-center gap-1.5 md:gap-2">
                         <TeamLogo name={row.teamName} logos={logos} size="w-7 h-7" />
                         <div className="flex flex-col leading-tight">
-                          <span className={`${isDinamoRow ? 'text-bright-blue' : ''} uppercase text-[10px] md:text-sm`}>{teamParts[0]}</span>
-                          {teamParts.length > 1 && <span className="text-[9px] opacity-50 font-medium">{teamParts.slice(1).join(' ')}</span>}
+                          {(() => {
+                            const lower = row.teamName.toLowerCase();
+                            if (lower.includes('юный динамовец')) {
+                              const parts = row.teamName.split(' ');
+                              return (
+                                <>
+                                  <span className="uppercase text-[10px] md:text-sm whitespace-nowrap">ЮНЫЙ ДИНАМОВЕЦ</span>
+                                  {parts.length > 2 && <span className="text-[8px] md:text-[9px] opacity-50 font-medium">{parts.slice(2).join(' ')}</span>}
+                                </>
+                              );
+                            }
+                            const teamParts = row.teamName.split(/[\s-]/);
+                            return (
+                              <>
+                                <span className={`${isDinamoRow ? 'text-bright-blue' : ''} uppercase text-[10px] md:text-sm`}>{teamParts[0]}</span>
+                                {teamParts.length > 1 && <span className="text-[9px] opacity-50 font-medium">{teamParts.slice(1).join(' ')}</span>}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </td>
@@ -1240,6 +1295,16 @@ const UpcomingMatchCard: React.FC<{ match: Match, logos: Record<string, string> 
   };
 
   const formatTeamName = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('юный динамовец')) {
+      const parts = name.split(' ');
+      return (
+        <div className="flex flex-col items-center">
+          <span className="uppercase text-[13px] whitespace-nowrap">ЮНЫЙ ДИНАМОВЕЦ</span>
+          {parts.length > 2 && <span className="text-[9px] opacity-60 font-medium uppercase tracking-tighter">{parts.slice(2).join(' ')}</span>}
+        </div>
+      );
+    }
     if (name.includes('-')) {
       const parts = name.split('-');
       return (
@@ -1871,54 +1936,87 @@ const AppFooter = () => {
 // --- Main App ---
 
 export default function App() {
-  const [data, setData] = useState<TournamentData | null>(null);
+  const [activeTournament, setActiveTournament] = useState<TournamentType>('ДФО');
+  const [allTournamentData, setAllTournamentData] = useState<Record<TournamentType, TournamentData | null>>({
+    'ДФО': null,
+    'РЮФЛ': null
+  });
   const [loading, setLoading] = useState(true);
   const [showHockeyMode, setShowHockeyMode] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Matches
-        Papa.parse(MATCHES_SHEET_URL, {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          complete: async (results) => {
-            const matches: Match[] = results.data.map((row: any) => {
-              const homeScore = row['Счет_Х'] !== '' && row['Счет_Х'] !== undefined ? parseInt(row['Счет_Х']) : undefined;
-              const awayScore = row['Счет_Г'] !== '' && row['Счет_Г'] !== undefined ? parseInt(row['Счет_Г']) : undefined;
-              
-              return {
-                id: parseInt(row['ID']),
-                date: row['Дата'],
-                time: row['Время'],
-                homeTeam: row['Хозяева'],
-                awayTeam: row['Гости'],
-                homeScore,
-                awayScore,
-                status: (homeScore !== undefined && awayScore !== undefined) ? 'Завершен' : 'Ожидается',
-                location: row['Место'],
-                homeScorers: row['Авторы_Х'],
-                awayScorers: row['Авторы_Г'],
-                photoUrl: row['Фото'],
-                broadcastUrl: row['Трансляция'],
-                weather: row['Погода'],
-                mapUrl: row['Карта_2ГИС']
-              };
+    const fetchEverything = async () => {
+      setLoading(true);
+      
+      const fetchLogos = async () => {
+        let logos: Record<string, string> = {
+          'Старт Владивосток': 'https://i.ibb.co/3YfY2wxQ/image.png',
+          'Атлетика Артём': 'https://i.ibb.co/zVHWXz6d/image.png',
+          'Локомотив Уссурийск': 'https://i.ibb.co/rKmr6NSk/image.png',
+          'Океан Находка': 'https://i.ibb.co/RkvnHgpN/image.png'
+        };
+        if (LOGOS_SHEET_URL && LOGOS_SHEET_URL.includes('pub?')) {
+          try {
+            await new Promise<void>((resolve) => {
+              Papa.parse(LOGOS_SHEET_URL, {
+                download: true, header: true, skipEmptyLines: true,
+                complete: (logoResults) => {
+                  (logoResults.data as any[]).forEach(row => {
+                    if (row['Команда'] && row['Логотип']) {
+                      logos[row['Команда']] = row['Логотип'];
+                    }
+                  });
+                  resolve();
+                },
+                error: () => resolve()
+              });
             });
+          } catch (e) { console.error('Logos fetch error:', e); }
+        }
+        return logos;
+      };
 
-            // Fetch Players (if URL exists)
-            let playersData: Player[] = [];
-            if (PLAYERS_SHEET_URL) {
-              try {
-                await new Promise<void>((resolve) => {
-                  Papa.parse(PLAYERS_SHEET_URL, {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (playerResults) => {
-                      playersData = (playerResults.data as any[]).map((row, idx) => ({
+      const globalLogos = await fetchLogos();
+
+      const fetchByTournament = async (type: TournamentType): Promise<TournamentData> => {
+        const config = TOURNAMENT_CONFIGS[type];
+        return new Promise((resolve) => {
+          Papa.parse(config.matches, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: async (results) => {
+              const matches: Match[] = results.data.map((row: any) => {
+                const homeScore = row['Счет_Х'] !== '' && row['Счет_Х'] !== undefined ? parseInt(row['Счет_Х']) : undefined;
+                const awayScore = row['Счет_Г'] !== '' && row['Счет_Г'] !== undefined ? parseInt(row['Счет_Г']) : undefined;
+                return {
+                  id: parseInt(row['ID']),
+                  date: row['Дата'],
+                  time: row['Время'],
+                  homeTeam: row['Хозяева'],
+                  awayTeam: row['Гости'],
+                  homeScore, awayScore,
+                  status: (homeScore !== undefined && awayScore !== undefined) ? 'Завершен' : 'Ожидается',
+                  location: row['Место'],
+                  homeScorers: row['Авторы_Х'],
+                  awayScorers: row['Авторы_Г'],
+                  photoUrl: row['Фото'],
+                  broadcastUrl: row['Трансляция'],
+                  weather: row['Погода'],
+                  mapUrl: row['Карта_2ГИС'],
+                  highlights: row['Моменты'] ? row['Моменты'].split(';').map((h: string, i: number) => {
+                    const [time, ...descParts] = h.trim().split('-');
+                    return { id: `h${i}`, time: time.trim(), description: descParts.join('-').trim() };
+                  }) : undefined
+                };
+              }).filter((m: Match) => !isNaN(m.id));
+
+              let playersData: Player[] = [];
+              if (config.players) {
+                await new Promise<void>((res) => {
+                  Papa.parse(config.players, {
+                    download: true, header: true, skipEmptyLines: true,
+                    complete: (pRes) => {
+                      playersData = (pRes.data as any[]).map((row, idx) => ({
                         id: idx,
                         number: row['номер'] || '',
                         name: row['имя'] || 'Без имени',
@@ -1926,165 +2024,101 @@ export default function App() {
                         goals: parseInt(row['голы']) || 0,
                         photoUrl: row['фото'] || `https://picsum.photos/seed/${row['имя'] || idx}/200`
                       }));
-                      resolve();
+                      res();
                     },
-                    error: (err) => {
-                      console.error('PapaParse error fetching players:', err);
-                      resolve();
-                    }
+                    error: () => res()
                   });
                 });
-              } catch (e) {
-                console.error('Error fetching players:', e);
               }
-            }
-            
-            if (playersData.length === 0) {
-              playersData = [
-                { id: 1, number: '1', name: 'Иванов Иван', position: 'Вратарь', goals: 5, photoUrl: 'https://picsum.photos/seed/ivan/200' },
-                { id: 2, number: '2', name: 'Петров Петр', position: 'Защитник', goals: 2, photoUrl: 'https://picsum.photos/seed/petr/200' },
-                { id: 3, number: '3', name: 'Сидоров Сидор', position: 'Полузащитник', goals: 4, photoUrl: 'https://picsum.photos/seed/sidor/200' },
-                { id: 4, number: '4', name: 'Алексеев Алексей', position: 'Нападающий', goals: 12, photoUrl: 'https://picsum.photos/seed/alex/200' }
-              ];
-            }
 
-            // Fetch Logos
-            let logos: Record<string, string> = {};
-            if (LOGOS_SHEET_URL && LOGOS_SHEET_URL.includes('pub?')) {
-              try {
-                await new Promise<void>((resolve) => {
-                  Papa.parse(LOGOS_SHEET_URL, {
-                    download: true,
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (logoResults) => {
-                      (logoResults.data as any[]).forEach(row => {
-                        if (row['Команда'] && row['Логотип']) {
-                          logos[row['Команда']] = row['Логотип'];
-                        }
-                      });
-                      resolve();
-                    },
-                    error: (err) => {
-                      resolve();
-                    }
+              const calculateTable = (matchList: Match[]) => {
+                const teams = Array.from(new Set(matchList.flatMap(m => [m.homeTeam, m.awayTeam])))
+                  .filter(t => t && String(t).trim() !== '');
+                const tableData = teams.map(team => {
+                  const teamMatches = matchList.filter(m => (m.homeTeam === team || m.awayTeam === team) && m.status === 'Завершен');
+                  let won = 0, drawn = 0, lost = 0, goalsFor = 0, goalsAgainst = 0;
+                  const lastGames: ('W' | 'D' | 'L')[] = [];
+                  teamMatches.forEach(m => {
+                    const isHome = m.homeTeam === team;
+                    const score = isHome ? m.homeScore! : m.awayScore!;
+                    const oppScore = isHome ? m.awayScore! : m.homeScore!;
+                    goalsFor += score; goalsAgainst += oppScore;
+                    if (score > oppScore) { won++; lastGames.push('W'); }
+                    else if (score === oppScore) { drawn++; lastGames.push('D'); }
+                    else { lost++; lastGames.push('L'); }
                   });
+                  return {
+                    teamName: team, played: teamMatches.length,
+                    won, drawn, lost, goalsFor, goalsAgainst,
+                    points: won * 3 + drawn, lastGames: lastGames.slice(-5),
+                    rank: 0, rankChange: 0 
+                  };
                 });
-              } catch (e) {
-                console.error('Error in logos fetch promise:', e);
+                tableData.sort((a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) || b.goalsFor - a.goalsFor);
+                tableData.forEach((row, idx) => row.rank = idx + 1);
+                return tableData;
+              };
+
+              const currentTable = calculateTable(matches);
+              const finishedMatches = matches.filter(m => m.status === 'Завершен');
+              if (finishedMatches.length > 0) {
+                const dates = Array.from(new Set(finishedMatches.map(m => m.date))).sort((a, b) => {
+                  const [da, ma, ya] = a.split('.').map(Number);
+                  const [db, mb, yb] = b.split('.').map(Number);
+                  return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+                });
+                const lastDate = dates[dates.length - 1];
+                const previousTable = calculateTable(finishedMatches.filter(m => m.date !== lastDate));
+                currentTable.forEach(row => {
+                  const prevRow = previousTable.find(p => p.teamName === row.teamName);
+                  if (prevRow && row.played > prevRow.played) row.rankChange = prevRow.rank - row.rank;
+                });
               }
-            }
 
-            // Calculate Table
-            const calculateTable = (matchList: Match[]) => {
-              const teams = Array.from(new Set(matchList.flatMap(m => [m.homeTeam, m.awayTeam])));
-              const tableData = teams.map(team => {
-                const teamMatches = matchList.filter(m => (m.homeTeam === team || m.awayTeam === team) && m.status === 'Завершен');
-                
-                let won = 0, drawn = 0, lost = 0, goalsFor = 0, goalsAgainst = 0;
-                const lastGames: ('W' | 'D' | 'L')[] = [];
+              const table = currentTable.length > 0 ? currentTable : MOCK_DATA[type].table;
+              const isOurTeam = (name: string) => {
+                const lower = name.toLowerCase();
+                return lower.includes('динамо') && !lower.includes('академия');
+              };
+              const dinamoRow = table.find(t => isOurTeam(t.teamName));
+              const nextMatch = matches.find(m => m.status === 'Ожидается' && (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam))) || null;
 
-                teamMatches.forEach(m => {
-                  const isHome = m.homeTeam === team;
-                  const score = isHome ? m.homeScore! : m.awayScore!;
-                  const oppScore = isHome ? m.awayScore! : m.homeScore!;
-                  
-                  goalsFor += score;
-                  goalsAgainst += oppScore;
-
-                  if (score > oppScore) {
-                    won++;
-                    lastGames.push('W');
-                  } else if (score === oppScore) {
-                    drawn++;
-                    lastGames.push('D');
-                  } else {
-                    lost++;
-                    lastGames.push('L');
-                  }
-                });
-
-                return {
-                  teamName: team,
-                  played: teamMatches.length,
-                  won,
-                  drawn,
-                  lost,
-                  goalsFor,
-                  goalsAgainst,
-                  points: won * 3 + drawn,
-                  lastGames: lastGames.slice(-5),
-                  rank: 0,
-                  rankChange: 0 
-                };
+              resolve({
+                table,
+                allMatches: matches,
+                dinamoMatches: matches.filter(m => isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam)),
+                recentMatches: [],
+                nextMatch,
+                dinamoStats: {
+                  rank: dinamoRow?.rank || 1,
+                  points: dinamoRow?.points || 0,
+                  lastResults: dinamoRow?.lastGames || []
+                },
+                dinamoPlayers: playersData,
+                logos: globalLogos
               });
-
-              tableData.sort((a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) || b.goalsFor - a.goalsFor);
-              tableData.forEach((row, idx) => row.rank = idx + 1);
-              return tableData;
-            };
-
-            const currentTable = calculateTable(matches);
-            
-            // Calculate Previous Table for Rank Change
-            const finishedMatches = matches.filter(m => m.status === 'Завершен');
-            if (finishedMatches.length > 0) {
-              const dates = Array.from(new Set(finishedMatches.map(m => m.date)));
-              dates.sort((a, b) => {
-                const [da, ma, ya] = a.split('.').map(Number);
-                const [db, mb, yb] = b.split('.').map(Number);
-                return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
-              });
-              
-              const lastDate = dates[dates.length - 1];
-              const previousMatches = finishedMatches.filter(m => m.date !== lastDate);
-              const previousTable = calculateTable(previousMatches);
-
-              currentTable.forEach(row => {
-                const prevRow = previousTable.find(p => p.teamName === row.teamName);
-                if (prevRow && row.played > prevRow.played) {
-                  row.rankChange = prevRow.rank - row.rank;
-                } else {
-                  row.rankChange = 0;
-                }
-              });
-            }
-
-            const table = currentTable;
-            const isOurTeam = (name: string) => {
-              const lower = name.toLowerCase();
-              return lower.includes('динамо') && !lower.includes('академия');
-            };
-
-            const dinamoRow = table.find(t => isOurTeam(t.teamName));
-            const nextMatch = matches.find(m => m.status === 'Ожидается' && (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam))) || null;
-            
-            setData({
-              table,
-              allMatches: matches,
-              dinamoMatches: matches.filter(m => isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam)),
-              recentMatches: [],
-              nextMatch,
-              dinamoStats: {
-                rank: dinamoRow?.rank || 0,
-                points: dinamoRow?.points || 0,
-                lastResults: dinamoRow?.lastGames || []
-              },
-              dinamoPlayers: playersData,
-              logos
-            });
-            setLoading(false);
-          }
+            },
+            error: () => resolve(MOCK_DATA[type])
+          });
         });
-      } catch (error) {
-        console.error('Error fetching sheet data:', error);
-        setData(MOCK_DATA);
-        setLoading(false);
-      }
+      };
+
+      const [dfoData, rjuflData] = await Promise.all([
+        fetchByTournament('ДФО'),
+        fetchByTournament('РЮФЛ')
+      ]);
+
+      setAllTournamentData({
+        'ДФО': dfoData,
+        'РЮФЛ': rjuflData
+      });
+      setLoading(false);
     };
 
-    fetchData();
+    fetchEverything();
   }, []);
+
+  const data = allTournamentData[activeTournament];
 
   const { scrollYProgress } = useScroll();
   const headerVisible = useTransform(scrollYProgress, [0.2, 0.25], [false, true]);
@@ -2141,7 +2175,11 @@ export default function App() {
         {!introFinished && <div className="absolute inset-0 bg-navy/20 z-[0]" />}
       </div>
 
-      <Header isVisible={introFinished} />
+      <Header 
+        isVisible={introFinished} 
+        activeTournament={activeTournament}
+        onTournamentChange={setActiveTournament}
+      />
       
       <AnimatePresence>
         {showHockeyMode && data && (
