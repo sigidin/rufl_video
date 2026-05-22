@@ -68,11 +68,17 @@ const isOurTeam = (name: string) => {
 
 const formatDate = (dateStr: string) => {
   try {
+    if (!dateStr || dateStr === 'Ожидается' || !dateStr.includes('.')) {
+      return dateStr || 'Ожидается';
+    }
     const [day, month] = dateStr.split('.').map(Number);
     const months = [
       'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
       'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
     ];
+    if (isNaN(day) || isNaN(month) || month < 1 || month > 12) {
+      return dateStr;
+    }
     return `${day} ${months[month - 1]}`;
   } catch (e) {
     return dateStr;
@@ -181,7 +187,7 @@ const Header = ({ isVisible: forceVisible, activeTournament, onTournamentChange 
 
           {/* Tournament Switcher */}
           <div className="flex flex-col justify-center gap-1.5 md:gap-2">
-            {(['ДФО', 'РЮФЛ'] as TournamentType[]).map((t) => (
+            {(['РЮФЛ', 'ДФО'] as TournamentType[]).map((t) => (
               <button
                 key={t}
                 onClick={() => onTournamentChange(t)}
@@ -885,6 +891,12 @@ const DinamoSpecialCard = ({ stats, players, logos, onTriggerHockey }: { stats: 
                                        player.position === 'цп' ? 'Полузащитник' : 
                                        player.position === 'нап' ? 'Нападающий' : player.position}
                                     </div>
+                                    {player.birthdate && (
+                                      <div className="text-[10px] text-white/50 mt-1 flex items-center gap-1.5 font-medium">
+                                        <Calendar className="w-3.5 h-3.5 text-bright-blue/60" />
+                                        <span>{player.birthdate}</span>
+                                      </div>
+                                    )}
                                     
                                     <div className="mt-3 flex items-center gap-4">
                                       <div className="flex flex-col">
@@ -1277,6 +1289,22 @@ const MatchRow: React.FC<{ match: Match, logos: Record<string, string> }> = ({ m
             {isFinished && <span className="text-xl font-black text-white italic">{match.awayScore}</span>}
           </div>
         </div>
+        {(match.referee || match.spectators) && (
+          <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap gap-4 text-[10px] font-medium text-white/50">
+            {match.referee && (
+              <div className="flex items-center gap-1.5 matches-ref">
+                <span className="text-bright-blue/80 font-bold uppercase tracking-wider text-[9px]">Судья:</span>
+                <span className="text-white/80 font-semibold">{match.referee}</span>
+              </div>
+            )}
+            {match.spectators && (
+              <div className="flex items-center gap-1.5 matches-spec">
+                <span className="text-bright-blue/80 font-bold uppercase tracking-wider text-[9px]">Зрители:</span>
+                <span className="text-white/80 font-semibold">{match.spectators}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1462,22 +1490,20 @@ const MatchList = ({ matches, title, icon, logos }: { matches: Match[], title: s
     };
   }, [isDragging]);
   
-  const isOurTeamLocal = (name: string) => {
-    const lower = name.toLowerCase();
-    return lower.includes('динамо') && !lower.includes('академия');
-  };
-
   // Filter matches for Dinamo Vladivostok if it's the upcoming section
   const filteredMatches = isUpcoming 
-    ? matches.filter(m => (isOurTeamLocal(m.homeTeam) || isOurTeamLocal(m.awayTeam)) && m.status === 'Ожидается')
+    ? matches.filter(m => (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam)) && m.status === 'Ожидается')
     : matches;
 
   // Sort upcoming matches by date
   const displayMatches = isUpcoming
     ? [...filteredMatches].sort((a, b) => {
-        const dateA = new Date(a.date.split('.').reverse().join('-')).getTime();
-        const dateB = new Date(b.date.split('.').reverse().join('-')).getTime();
-        return dateA - dateB;
+        const parseDateVal = (dStr: string) => {
+          if (!dStr || !dStr.includes('.')) return 9999999999999;
+          const [day, month] = dStr.split('.').map(Number);
+          return new Date(2026, month - 1, day).getTime();
+        };
+        return parseDateVal(a.date) - parseDateVal(b.date);
       })
     : filteredMatches;
 
@@ -1563,9 +1589,12 @@ const PastMatchesList = ({ matches, logos }: { matches: Match[], logos: Record<s
   const pastMatches = matches
     .filter(m => m.status === 'Завершен' && (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam)))
     .sort((a, b) => {
-      const dateA = new Date(a.date.split('.').reverse().join('-')).getTime();
-      const dateB = new Date(b.date.split('.').reverse().join('-')).getTime();
-      return dateB - dateA;
+      const parseDateVal = (dStr: string) => {
+        if (!dStr || !dStr.includes('.')) return 0;
+        const [day, month] = dStr.split('.').map(Number);
+        return new Date(2026, month - 1, day).getTime();
+      };
+      return parseDateVal(b.date) - parseDateVal(a.date);
     });
 
   if (pastMatches.length === 0) return null;
@@ -1647,12 +1676,19 @@ const WeatherWidget = ({ city }: { city: string }) => {
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        // Using wttr.in for simple weather data
-        const response = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=%t+%c`);
+        const response = await fetch(`/api/weather?city=${encodeURIComponent(city)}`);
         if (response.ok) {
-          const text = await response.text();
-          const [temp, icon] = text.trim().split(' ');
-          setWeather({ temp, icon });
+          const data = await response.json();
+          if (data && data.weather) {
+            const parts = data.weather.trim().split(/\s+/);
+            if (parts.length >= 2) {
+              const temp = parts[0];
+              const icon = parts.slice(1).join(' ');
+              setWeather({ temp, icon });
+            } else if (parts.length === 1) {
+              setWeather({ temp: parts[0], icon: '' });
+            }
+          }
         }
       } catch (e) {
         console.warn('Weather fetch failed', e);
@@ -1661,7 +1697,7 @@ const WeatherWidget = ({ city }: { city: string }) => {
     fetchWeather();
   }, [city]);
 
-  if (!weather) return null;
+  if (!weather || !weather.temp) return null;
 
   return (
     <div className="flex items-center gap-2 text-[10px] font-bold text-neon-yellow uppercase tracking-[0.2em] mt-3">
@@ -1933,10 +1969,65 @@ const AppFooter = () => {
   );
 };
 
+// --- Helper to fetch and merge Dynamo, Vladivostok players from Tournify and Google Sheets ---
+const fetchDynamoRoster = async (playersSheetUrl: string): Promise<Player[]> => {
+  try {
+    const tournifyUrl = 'https://tournify.ru/api/v1/tournaments/pervenstvo-primorskogo-kraya-po-futbolu-sredi-yunoshei-2012-goda-rozhdenie-u-15/teams/c2fbeea5-8f07-40aa-8de9-85da808225f9/roster';
+    const [gsText, tRes] = await Promise.all([
+      fetch(playersSheetUrl).then(r => r.text()),
+      fetch(tournifyUrl).then(r => r.json())
+    ]);
+
+    const gsPlayers = Papa.parse(gsText, { header: true, skipEmptyLines: true }).data as any[];
+    const tPlayers = tRes.players || [];
+
+    return tPlayers.map((p: any, idx: number) => {
+      const lastNameNorm = p.last_name.trim().toLowerCase().replace('ё', 'е');
+      const gsMatch = gsPlayers.find(g => {
+        const gNameNorm = (g['имя'] || '').trim().toLowerCase().replace('ё', 'е');
+        return gNameNorm === lastNameNorm;
+      });
+
+      const parsedBirthdate = p.birthdate ? p.birthdate.split('-').reverse().join('.') : undefined;
+      const number = p.number !== null && p.number !== undefined ? String(p.number) : (gsMatch ? gsMatch['номер'] : '') || '';
+      const position = (gsMatch ? gsMatch['позиция'] : '') || 'защ'; // Default to защ if empty
+      const goals = gsMatch ? parseInt(gsMatch['голы']) || 0 : 0;
+      const photoUrl = (gsMatch ? gsMatch['фото'] : '') || `https://picsum.photos/seed/${p.last_name}/200`;
+
+      return {
+        id: idx,
+        number,
+        name: `${p.last_name} ${p.first_name}`,
+        position,
+        goals,
+        photoUrl,
+        birthdate: parsedBirthdate
+      };
+    });
+  } catch (error) {
+    console.error('Error in fetchDynamoRoster:', error);
+    try {
+      const gsText = await fetch(playersSheetUrl).then(r => r.text());
+      const gsPlayers = Papa.parse(gsText, { header: true, skipEmptyLines: true }).data as any[];
+      return gsPlayers.map((row, idx) => ({
+        id: idx,
+        number: row['номер'] || '',
+        name: row['имя'] || 'Без имени',
+        position: row['позиция'] || 'защ',
+        goals: parseInt(row['голы']) || 0,
+        photoUrl: row['фото'] || `https://picsum.photos/seed/${row['имя'] || idx}/200`
+      }));
+    } catch (e) {
+      console.error('Fallback player parse failed:', e);
+      return [];
+    }
+  }
+};
+
 // --- Main App ---
 
 export default function App() {
-  const [activeTournament, setActiveTournament] = useState<TournamentType>('ДФО');
+  const [activeTournament, setActiveTournament] = useState<TournamentType>('РЮФЛ');
   const [allTournamentData, setAllTournamentData] = useState<Record<TournamentType, TournamentData | null>>({
     'ДФО': null,
     'РЮФЛ': null
@@ -1981,6 +2072,316 @@ export default function App() {
 
       const fetchByTournament = async (type: TournamentType): Promise<TournamentData> => {
         const config = TOURNAMENT_CONFIGS[type];
+
+        if (type === 'РЮФЛ') {
+          return new Promise((resolve) => {
+            Papa.parse(config.matches, {
+              download: true, header: true, skipEmptyLines: true,
+              complete: async (csvResults) => {
+                const getRyuflMapUrl = (loc: string): string | undefined => {
+                  if (!loc) return undefined;
+                  const lower = loc.toLowerCase();
+                  if (lower.includes('владивосток')) return 'https://2gis.ru/vladivostok/firm/3518965489879039';
+                  if (lower.includes('уссурийск')) return 'https://2gis.ru/ussuriysk/geo/11681847188670674';
+                  if (lower.includes('находка')) return 'https://2gis.ru/nahodka/firm/11541002326115713';
+                  if (lower.includes('артём') || lower.includes('артем')) return 'https://2gis.ru/artem/geo/70030076126731547';
+                  return undefined;
+                };
+
+                const mapCsvTeamName = (name: string) => {
+                  if (!name) return 'Без названия';
+                  const clean = name.trim();
+                  if (clean.toLowerCase().includes('ак. динамо') || clean.toLowerCase().includes('академия динамо')) {
+                    return 'АКАДЕМИЯ Динамо Владивосток';
+                  }
+                  if (clean === 'Динамо Владивосток' || clean === 'ДИНАМО Владивосток' || clean.toLowerCase() === 'динамо владивосток') {
+                    return 'ДИНАМО Владивосток';
+                  }
+                  return clean;
+                };
+
+                const csvMatches: Match[] = csvResults.data.map((row: any) => {
+                  const homeScore = row['Счет_Х'] !== '' && row['Счет_Х'] !== undefined ? parseInt(row['Счет_Х']) : undefined;
+                  const awayScore = row['Счет_Г'] !== '' && row['Счет_Г'] !== undefined ? parseInt(row['Счет_Г']) : undefined;
+                  const loc = row['Место'] || 'Владивосток';
+                  return {
+                    id: parseInt(row['ID']),
+                    date: row['Дата'] || 'Ожидается',
+                    time: row['Время'] || '00:00',
+                    homeTeam: mapCsvTeamName(row['Хозяева']),
+                    awayTeam: mapCsvTeamName(row['Гости']),
+                    homeScore, awayScore,
+                    status: (homeScore !== undefined && awayScore !== undefined) ? 'Завершен' : 'Ожидается',
+                    location: loc,
+                    homeScorers: row['Авторы_Х'],
+                    awayScorers: row['Авторы_Г'],
+                    photoUrl: row['Фото'],
+                    broadcastUrl: row['Трансляция'],
+                    weather: row['Погода'],
+                    mapUrl: row['Карта_2ГИС'] || getRyuflMapUrl(loc),
+                    highlights: row['Моменты'] ? row['Моменты'].split(';').map((h: string, i: number) => {
+                      const [timeStr, ...descParts] = h.trim().split('-');
+                      return { id: `h${i}`, time: timeStr.trim(), description: descParts.join('-').trim() };
+                    }) : undefined
+                  };
+                }).filter((m: Match) => !isNaN(m.id));
+
+                let tournifyMatches: Match[] = [];
+                let useTournify = false;
+
+                try {
+                  const tResponse = await fetch('/api/tournify-ryufl');
+                  if (tResponse.ok) {
+                    const tournifyData = await tResponse.json();
+                    if (tournifyData && tournifyData.matches && tournifyData.teams) {
+                      const teamMap: Record<string, string> = {};
+                      tournifyData.teams.forEach((t: any) => {
+                        teamMap[t.id] = t.name;
+                      });
+
+                      const getMappedTeamName = (rawName: string) => {
+                        if (!rawName) return 'Без названия';
+                        const clean = rawName.replace(/["']/g, '').trim();
+                        if (clean.includes('Динамо Владивосток 2012')) return 'ДИНАМО Владивосток';
+                        if (clean.includes('Академия Динамо 2012')) return 'АКАДЕМИЯ Динамо Владивосток';
+                        if (clean.includes('Атлетика 2012')) return 'Атлетика Артём';
+                        if (clean.includes('Локомотив 2012')) return 'Локомотив Уссурийск';
+                        if (clean.includes('Океан 2012')) return 'Океан Находка';
+                        if (clean.includes('Рекорд 2012')) return 'Рекорд Уссурийск';
+                        if (clean.includes('Старт')) return 'Старт Владивосток';
+                        if (clean.includes('Мостовик Приморье')) return 'Юный Динамовец Уссурийск';
+                        return rawName;
+                      };
+
+                      tournifyMatches = tournifyData.matches.map((m: any, idx: number) => {
+                        const homeNameRaw = teamMap[m.home_team_id] || '';
+                        const awayNameRaw = teamMap[m.away_team_id] || '';
+                        
+                        const homeTeam = getMappedTeamName(homeNameRaw);
+                        const awayTeam = getMappedTeamName(awayNameRaw);
+
+                        let homeScore = m.score_home !== null && m.score_home !== undefined ? parseInt(m.score_home) : undefined;
+                        let awayScore = m.score_away !== null && m.score_away !== undefined ? parseInt(m.score_away) : undefined;
+
+                        let date = 'Ожидается';
+                        if (m.match_date) {
+                          const parts = m.match_date.split('-');
+                          if (parts.length === 3) {
+                            date = `${parts[2]}.${parts[1]}`;
+                          }
+                        }
+
+                        let time = '00:00';
+                        if (m.match_time) {
+                          time = m.match_time.substring(0, 5);
+                        }
+
+                        const norm = (s: string) => s ? s.toLowerCase().replace(/["']/g, '').replace(/[^a-zа-я0-9]/g, '').trim() : '';
+                        const homeNorm = norm(homeTeam);
+                        const awayNorm = norm(awayTeam);
+
+                        const gsMatch = csvMatches.find(cm => {
+                          const cmHomeNorm = norm(cm.homeTeam);
+                          const cmAwayNorm = norm(cm.awayTeam);
+                          const namesMatch = (cmHomeNorm === homeNorm && cmAwayNorm === awayNorm) ||
+                                             (cmHomeNorm === awayNorm && cmAwayNorm === homeNorm);
+                          if (!namesMatch) return false;
+
+                          const gsPlayed = cm.status === 'Завершен';
+                          const tournifyPlayed = homeScore !== undefined && awayScore !== undefined;
+                          return gsPlayed === tournifyPlayed;
+                        });
+
+                        let broadcastUrl = m.broadcast_link || undefined;
+                        let weather = undefined;
+                        let location = m.location || 'Владивосток';
+                        let mapUrl = getRyuflMapUrl(location);
+                        let highlights = undefined;
+                        let photoUrl = undefined;
+                        let homeScorers = undefined;
+                        let awayScorers = undefined;
+
+                        if (gsMatch) {
+                          if (gsMatch.broadcastUrl) broadcastUrl = gsMatch.broadcastUrl;
+                          if (gsMatch.weather) weather = gsMatch.weather;
+                          if (gsMatch.location) {
+                            location = gsMatch.location;
+                            const ryuflMap = getRyuflMapUrl(location);
+                            if (ryuflMap) mapUrl = ryuflMap;
+                          }
+                          if (gsMatch.mapUrl) mapUrl = gsMatch.mapUrl;
+                          if (gsMatch.highlights) highlights = gsMatch.highlights;
+                          if (gsMatch.photoUrl) photoUrl = gsMatch.photoUrl;
+                          if (gsMatch.homeScorers) homeScorers = gsMatch.homeScorers;
+                          if (gsMatch.awayScorers) awayScorers = gsMatch.awayScorers;
+                          
+                          if (gsMatch.date && gsMatch.date !== 'Ожидается' && !m.match_date) {
+                            date = gsMatch.date;
+                          }
+                          if (gsMatch.time && gsMatch.time !== '00:00' && !m.match_time) {
+                            time = gsMatch.time;
+                          }
+
+                          // If the teams are swapped in GS vs Tournify, let's respect the GS's host ordering (left plays at home)!
+                          const gsHomeNorm = norm(gsMatch.homeTeam);
+                          const gsAwayNorm = norm(gsMatch.awayTeam);
+                          if (gsHomeNorm === awayNorm && gsAwayNorm === homeNorm) {
+                            const tempHome = homeTeam;
+                            const tempAway = awayTeam;
+                            const tempHomeScore = homeScore;
+                            const tempAwayScore = awayScore;
+
+                            return {
+                              id: 1000 + idx,
+                              date,
+                              time,
+                              homeTeam: tempAway,
+                              awayTeam: tempHome,
+                              homeScore: tempAwayScore,
+                              awayScore: tempHomeScore,
+                              status: (tempAwayScore !== undefined && tempHomeScore !== undefined) ? 'Завершен' : 'Ожидается',
+                              location,
+                              referee: m.referee || undefined,
+                              spectators: m.spectators || undefined,
+                              broadcastUrl,
+                              weather,
+                              mapUrl,
+                              highlights,
+                              photoUrl,
+                              homeScorers: awayScorers,
+                              awayScorers: homeScorers
+                            };
+                          }
+                        }
+
+                        return {
+                          id: 1000 + idx,
+                          date,
+                          time,
+                          homeTeam,
+                          awayTeam,
+                          homeScore,
+                          awayScore,
+                          status: (homeScore !== undefined && awayScore !== undefined) ? 'Завершен' : 'Ожидается',
+                          location,
+                          referee: m.referee || undefined,
+                          spectators: m.spectators || undefined,
+                          broadcastUrl,
+                          weather,
+                          mapUrl,
+                          highlights,
+                          photoUrl,
+                          homeScorers,
+                          awayScorers
+                        };
+                      });
+
+                      useTournify = true;
+                    }
+                  }
+                } catch (e) {
+                  console.error("Failed to load Tournify, using CSV matches:", e);
+                }
+
+                const finalMatches = useTournify ? tournifyMatches : csvMatches;
+
+                // Sort matches so that valid date scheduled ones are first
+                const parseMatchDateValue = (dStr: string) => {
+                  if (!dStr || dStr === 'Ожидается' || !dStr.includes('.')) return 9999999999999;
+                  const [day, month] = dStr.split('.').map(Number);
+                  return new Date(2026, month - 1, day).getTime();
+                };
+
+                finalMatches.sort((a, b) => {
+                  const aSched = a.date !== 'Ожидается';
+                  const bSched = b.date !== 'Ожидается';
+                  if (aSched && !bSched) return -1;
+                  if (!aSched && bSched) return 1;
+                  if (aSched && bSched) {
+                    return parseMatchDateValue(a.date) - parseMatchDateValue(b.date);
+                  }
+                  return 0;
+                });
+
+                let playersData: Player[] = [];
+                if (config.players) {
+                  playersData = await fetchDynamoRoster(config.players);
+                }
+
+                const calculateTable = (matchList: Match[]) => {
+                  const teamsSet = new Set(matchList.flatMap(m => [m.homeTeam, m.awayTeam]));
+                  const teams = Array.from(teamsSet).filter(t => t && String(t).trim() !== '' && t !== 'Без названия');
+                  
+                  const tableData = teams.map(team => {
+                    const teamMatches = matchList.filter(m => (m.homeTeam === team || m.awayTeam === team) && m.status === 'Завершен');
+                    let won = 0, drawn = 0, lost = 0, goalsFor = 0, goalsAgainst = 0;
+                    const lastGames: ('W' | 'D' | 'L')[] = [];
+                    teamMatches.forEach(m => {
+                      const isHome = m.homeTeam === team;
+                      const score = isHome ? m.homeScore! : m.awayScore!;
+                      const oppScore = isHome ? m.awayScore! : m.homeScore!;
+                      goalsFor += score; goalsAgainst += oppScore;
+                      if (score > oppScore) { won++; lastGames.push('W'); }
+                      else if (score === oppScore) { drawn++; lastGames.push('D'); }
+                      else { lost++; lastGames.push('L'); }
+                    });
+                    return {
+                      teamName: team, played: teamMatches.length,
+                      won, drawn, lost, goalsFor, goalsAgainst,
+                      points: won * 3 + drawn, lastGames: lastGames.slice(-5),
+                      rank: 0, rankChange: 0 
+                    };
+                  });
+                  tableData.sort((a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) || b.goalsFor - a.goalsFor);
+                  tableData.forEach((row, idx) => row.rank = idx + 1);
+                  return tableData;
+                };
+
+                const currentTable = calculateTable(finalMatches);
+                const finishedMatches = finalMatches.filter(m => m.status === 'Завершен');
+                if (finishedMatches.length > 0) {
+                  const dates = Array.from(new Set(finishedMatches.map(m => m.date)))
+                    .filter(d => d.includes('.'))
+                    .sort((a, b) => {
+                      const [da, ma] = a.split('.').map(Number);
+                      const [db, mb] = b.split('.').map(Number);
+                      return new Date(2026, ma - 1, da).getTime() - new Date(2026, mb - 1, db).getTime();
+                    });
+                  if (dates.length > 0) {
+                    const lastDate = dates[dates.length - 1];
+                    const previousTable = calculateTable(finishedMatches.filter(m => m.date !== lastDate));
+                    currentTable.forEach(row => {
+                      const prevRow = previousTable.find(p => p.teamName === row.teamName);
+                      if (prevRow && row.played > prevRow.played) row.rankChange = prevRow.rank - row.rank;
+                    });
+                  }
+                }
+
+                const table = currentTable.length > 0 ? currentTable : MOCK_DATA[type].table;
+                const dinamoRow = table.find(t => isOurTeam(t.teamName));
+                
+                const nextMatch = finalMatches.find(m => m.status === 'Ожидается' && (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam))) || null;
+
+                resolve({
+                  table,
+                  allMatches: finalMatches,
+                  dinamoMatches: finalMatches.filter(m => isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam)),
+                  recentMatches: [],
+                  nextMatch,
+                  dinamoStats: {
+                    rank: dinamoRow?.rank || 1,
+                    points: dinamoRow?.points || 0,
+                    lastResults: dinamoRow?.lastGames || []
+                  },
+                  dinamoPlayers: playersData,
+                  logos: globalLogos
+                });
+              },
+              error: () => resolve(MOCK_DATA[type])
+            });
+          });
+        }
+
         return new Promise((resolve) => {
           Papa.parse(config.matches, {
             download: true, header: true, skipEmptyLines: true,
@@ -2012,23 +2413,7 @@ export default function App() {
 
               let playersData: Player[] = [];
               if (config.players) {
-                await new Promise<void>((res) => {
-                  Papa.parse(config.players, {
-                    download: true, header: true, skipEmptyLines: true,
-                    complete: (pRes) => {
-                      playersData = (pRes.data as any[]).map((row, idx) => ({
-                        id: idx,
-                        number: row['номер'] || '',
-                        name: row['имя'] || 'Без имени',
-                        position: row['позиция'] || 'защ',
-                        goals: parseInt(row['голы']) || 0,
-                        photoUrl: row['фото'] || `https://picsum.photos/seed/${row['имя'] || idx}/200`
-                      }));
-                      res();
-                    },
-                    error: () => res()
-                  });
-                });
+                playersData = await fetchDynamoRoster(config.players);
               }
 
               const calculateTable = (matchList: Match[]) => {
@@ -2075,11 +2460,24 @@ export default function App() {
                 });
               }
 
-              const table = currentTable.length > 0 ? currentTable : MOCK_DATA[type].table;
-              const isOurTeam = (name: string) => {
-                const lower = name.toLowerCase();
-                return lower.includes('динамо') && !lower.includes('академия');
+              const parseMatchDateValue = (dStr: string) => {
+                if (!dStr || dStr === 'Ожидается' || !dStr.includes('.')) return 9999999999999;
+                const [day, month] = dStr.split('.').map(Number);
+                return new Date(2026, month - 1, day).getTime();
               };
+
+              matches.sort((a, b) => {
+                const aSched = a.date !== 'Ожидается';
+                const bSched = b.date !== 'Ожидается';
+                if (aSched && !bSched) return -1;
+                if (!aSched && bSched) return 1;
+                if (aSched && bSched) {
+                  return parseMatchDateValue(a.date) - parseMatchDateValue(b.date);
+                }
+                return 0;
+              });
+
+              const table = currentTable.length > 0 ? currentTable : MOCK_DATA[type].table;
               const dinamoRow = table.find(t => isOurTeam(t.teamName));
               const nextMatch = matches.find(m => m.status === 'Ожидается' && (isOurTeam(m.homeTeam) || isOurTeam(m.awayTeam))) || null;
 

@@ -53,6 +53,7 @@ export interface Player {
   position: string; // Flexible position string from CSV
   goals: number; 
   photoUrl?: string; // New: link to player photo
+  birthdate?: string; // New: birthdate of the player
 }
 
 export interface TournamentData {
